@@ -415,6 +415,107 @@
 			color: #fbbf24;
 			margin-top: 4px;
 		}
+		
+		/* AI Analysis Output Styles */
+		.ai-analysis {
+			background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+			border: 1px solid #334155;
+			border-radius: 12px;
+			padding: 20px;
+		}
+		
+		.ai-meta {
+			display: flex;
+			gap: 20px;
+			margin-bottom: 16px;
+			padding-bottom: 16px;
+			border-bottom: 1px solid #334155;
+			font-size: 0.85rem;
+			color: #94a3b8;
+		}
+		
+		.ai-model {
+			background: rgba(102, 126, 234, 0.1);
+			padding: 4px 12px;
+			border-radius: 6px;
+			border: 1px solid rgba(102, 126, 234, 0.3);
+		}
+		
+		.ai-time {
+			background: rgba(34, 197, 94, 0.1);
+			padding: 4px 12px;
+			border-radius: 6px;
+			border: 1px solid rgba(34, 197, 94, 0.3);
+		}
+		
+		.ai-summary {
+			color: #e2e8f0;
+			line-height: 1.6;
+		}
+		
+		.ai-summary h1 {
+			font-size: 1.4rem;
+			color: #f8fafc;
+			margin: 0 0 16px 0;
+			-webkit-text-fill-color: #f8fafc;
+			background: none;
+		}
+		
+		.ai-summary h2 {
+			font-size: 1.2rem;
+			color: #60a5fa;
+			margin: 20px 0 12px 0;
+		}
+		
+		.ai-summary h3 {
+			font-size: 1.1rem;
+			color: #a78bfa;
+			margin: 16px 0 10px 0;
+		}
+		
+		.ai-summary p {
+			margin: 0 0 12px 0;
+		}
+		
+		.ai-summary strong {
+			color: #fbbf24;
+		}
+		
+		.ai-summary em {
+			color: #94a3b8;
+		}
+		
+		.ai-summary code {
+			background: #0f172a;
+			padding: 2px 6px;
+			border-radius: 4px;
+			font-family: monospace;
+			font-size: 0.9em;
+			color: #4ade80;
+		}
+		
+		.ai-summary pre {
+			background: #0f172a;
+			padding: 16px;
+			border-radius: 8px;
+			overflow-x: auto;
+			margin: 12px 0;
+			border: 1px solid #334155;
+		}
+		
+		.ai-summary pre code {
+			background: none;
+			padding: 0;
+		}
+		
+		.ai-summary ul, .ai-summary ol {
+			margin: 12px 0;
+			padding-left: 24px;
+		}
+		
+		.ai-summary li {
+			margin: 6px 0;
+		}
 	</style>
 </head>
 <body>
@@ -524,6 +625,38 @@
 			};
 		}
 		
+		// Simple markdown to HTML converter
+		function renderMarkdown(markdown) {
+			if (!markdown) return '';
+			
+			let html = markdown
+				// Headers
+				.replace(/^### (.*$)/gim, '<h3>$1</h3>')
+				.replace(/^## (.*$)/gim, '<h2>$1</h2>')
+				.replace(/^# (.*$)/gim, '<h1>$1</h1>')
+				// Bold
+				.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+				// Italic
+				.replace(/\*(.*?)\*/g, '<em>$1</em>')
+				// Code blocks
+				.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+				// Inline code
+				.replace(/`([^`]+)`/g, '<code>$1</code>')
+				// Lists
+				.replace(/^\* (.*$)/gim, '<li>$1</li>')
+				// Paragraphs
+				.replace(/\n\n/g, '</p><p>')
+				// Line breaks
+				.replace(/\n/g, '<br>');
+			
+			// Wrap in paragraph if not already wrapped
+			if (!html.startsWith('<')) {
+				html = '<p>' + html + '</p>';
+			}
+			
+			return html;
+		}
+		
 		function renderWorkflow(instance) {
 			const container = document.getElementById('workflowContent');
 			const completedSteps = instance.steps.filter(s => s.status === 'completed').length;
@@ -560,9 +693,20 @@
 						</div>
 				`;
 				
-				if (hasOutput) {
+			if (hasOutput) {
+				// Special rendering for AI Analysis step
+				if (step.name === 'AI Analysis' && step.output.summary) {
+					html += `<div class="step-output ai-analysis">`;
+					html += `<div class="ai-meta">`;
+					html += `<span class="ai-model"><strong>Model:</strong> ${step.output.model}</span>`;
+					html += `<span class="ai-time"><strong>Analyzed:</strong> ${new Date(step.output.analyzedAt).toLocaleString()}</span>`;
+					html += `</div>`;
+					html += `<div class="ai-summary">${renderMarkdown(step.output.summary)}</div>`;
+					html += `</div>`;
+				} else {
 					html += `<div class="step-output">${JSON.stringify(step.output, null, 2)}</div>`;
 				}
+			}
 				
 				if (hasError) {
 					html += `<div class="step-error">Error: ${step.error}</div>`;

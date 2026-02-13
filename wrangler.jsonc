@@ -55,6 +55,9 @@
 		"html_handling": "auto-trailing-slash",
 		"not_found_handling": "single-page-application"
 	},
+	"ai": {
+		"binding": "AI"
+	},
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings

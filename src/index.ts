@@ -8,6 +8,7 @@ import {
  * Cloudflare Workflow with Dashboard UI
  * Real-time updates, step visualization, and approval controls
  * Uses D1 for persistence across Worker instances
+ * Includes AI analysis using Workers AI
  */
 
 type Params = {
@@ -140,6 +141,29 @@ async function getAllWorkflowInstances(env: Env): Promise<WorkflowInstance[]> {
 	return instances;
 }
 
+// Document content embedded for workflow access
+const DOCUMENT_CONTENT = `# Enhancing Productivity with Cloudflare Workflows and AI Agents
+
+## The Evolution of Modern Development Workflows
+
+In today's fast-paced development landscape, efficiency and automation are paramount. Cloudflare has emerged as a leading platform for building and deploying modern applications at the edge. By leveraging Cloudflare Workers, developers can execute code closer to users, reducing latency and improving performance. The platform's serverless architecture eliminates the need for traditional infrastructure management, allowing teams to focus on building features rather than maintaining servers. This shift represents a fundamental change in how we approach application development, moving from monolithic architectures to distributed, edge-first systems.
+
+## Understanding Cloudflare Workflows for Durable Execution
+
+Cloudflare Workflows introduces a powerful paradigm for building durable, multi-step processes that can run for extended periods. Unlike traditional serverless functions that execute and terminate quickly, workflows maintain state across steps, handle failures gracefully with automatic retries, and can pause execution to wait for external events or human approval. This makes them ideal for complex business processes such as document processing pipelines, approval workflows, data ETL operations, and long-running computational tasks. The workflow engine ensures that each step is executed exactly once, even in the face of failures, providing reliability that's essential for production systems.
+
+## The Rise of Agentic AI Systems
+
+Agentic AI represents the next evolution in artificial intelligence, where AI systems can autonomously make decisions, execute tasks, and interact with external systems. These agents go beyond simple chatbots by maintaining state, scheduling tasks, and integrating with APIs and databases. Cloudflare's Agents SDK provides the infrastructure to build these intelligent systems on the edge, combining the durability of Durable Objects with AI capabilities. Agents can handle long-running conversations, process documents, make approval decisions, and even coordinate complex multi-step operations while maintaining context and state across interactions.
+
+## Combining Workflows and Agents for Maximum Productivity
+
+The true power emerges when combining Cloudflare Workflows with AI Agents. Workflows provide the durable execution backbone, ensuring that multi-step processes complete reliably, while Agents add intelligent decision-making capabilities. For example, a document processing workflow might use an AI agent to analyze content, extract key information, and make routing decisions based on the document type. The workflow handles the orchestration, retries, and state management, while the agent provides the cognitive layer. This combination enables businesses to automate complex processes that previously required human intervention, significantly increasing productivity while maintaining accuracy and reliability.
+
+## Practical Implementation and Best Practices
+
+Implementing these technologies requires careful consideration of state management, error handling, and scalability. When building workflows, it's important to design idempotent steps that can be safely retried. For AI agents, consider the context window limitations of models and implement strategies for managing long-running conversations. Use Cloudflare's D1 database for persistent storage, Vectorize for semantic search capabilities, and AI Gateway for routing requests across different AI providers. By following these patterns, developers can build robust, scalable systems that leverage the best of both workflows and agentic AI, creating applications that are not only performant but also intelligent and adaptive to changing requirements.`;
+
 export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 	async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
 		const instanceId = (event as any).instanceId || 'unknown';
@@ -147,32 +171,61 @@ export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 		
 		await updateWorkflowStatus(instanceId, 'running', env);
 
-		// Step 1: Fetch files
+		// Step 1: Fetch document
 		await updateStep(instanceId, 0, { status: 'running', timestamp: Date.now() }, env);
-		const files = await step.do("my first step", async () => {
-			await new Promise(resolve => setTimeout(resolve, 1000));
+		const documentContent = await step.do("fetch document", async () => {
+			// Document is embedded in the code for reliable access
+			const content = DOCUMENT_CONTENT;
 			return {
-				inputParams: event.payload,
-				files: [
-					"doc_7392_rev3.pdf",
-					"report_x29_final.pdf",
-					"memo_2024_05_12.pdf",
-					"file_089_update.pdf",
-					"proj_alpha_v2.pdf",
-					"data_analysis_q2.pdf",
-					"notes_meeting_52.pdf",
-					"summary_fy24_draft.pdf",
-				],
+				filename: 'document.txt',
+				content: content,
+				length: content.length,
+				wordCount: content.split(/\s+/).length
 			};
 		});
 		await updateStep(instanceId, 0, { 
 			status: 'completed', 
-			output: files,
+			output: documentContent,
 			duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[0].timestamp
 		}, env);
 
-		// Step 2: Wait for approval
-		await updateStep(instanceId, 1, { status: 'waiting', timestamp: Date.now() }, env);
+		// Step 2: AI Analysis - Analyze document content
+		await updateStep(instanceId, 1, { status: 'running', timestamp: Date.now() }, env);
+		const aiAnalysis = await step.do("analyze with AI", async () => {
+			const prompt = `Please analyze the following document and provide a comprehensive summary highlighting:
+1. Main topics covered
+2. Key insights about Cloudflare, Workflows, and AI Agents
+3. Practical applications mentioned
+4. Best practices discussed
+
+Document:
+${documentContent.content}
+
+Provide your analysis in a structured format.`;
+
+			const response = await env.AI.run(
+				'@cf/meta/llama-3.1-8b-instruct',
+				{
+					prompt: prompt,
+					max_tokens: 2048
+				}
+			);
+			
+			return {
+				model: '@cf/meta/llama-3.1-8b-instruct',
+				summary: response.response,
+				wordCount: documentContent.wordCount,
+				analyzedAt: new Date().toISOString()
+			};
+		});
+		await updateStep(instanceId, 1, { 
+			status: 'completed', 
+			output: aiAnalysis,
+			duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[1].timestamp
+		}, env);
+
+		// Step 3: Wait for approval
+		await updateStep(instanceId, 2, { status: 'waiting', timestamp: Date.now() }, env);
 		await updateWorkflowStatus(instanceId, 'waiting', env);
 		await broadcastUpdate(instanceId, { type: 'waiting', instance: await getWorkflowInstance(instanceId, env) }, env);
 		
@@ -181,43 +234,43 @@ export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 			timeout: "1 hour",
 		});
 		
-		await updateStep(instanceId, 1, { 
+		await updateStep(instanceId, 2, { 
 			status: 'completed', 
 			output: { approved: true, timestamp: Date.now() },
-			duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[1].timestamp
+			duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[2].timestamp
 		}, env);
 		
 		await updateWorkflowStatus(instanceId, 'running', env);
 
-		// Step 3: Fetch API data
-		await updateStep(instanceId, 2, { status: 'running', timestamp: Date.now() }, env);
-		const apiResponse = await step.do("some other step", async () => {
+		// Step 4: Fetch API data
+		await updateStep(instanceId, 3, { status: 'running', timestamp: Date.now() }, env);
+		const apiResponse = await step.do("fetch cloudflare IPs", async () => {
 			let resp = await fetch("https://api.cloudflare.com/client/v4/ips");
 			return await resp.json<any>();
 		});
-		await updateStep(instanceId, 2, { 
-			status: 'completed', 
-			output: apiResponse,
-			duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[2].timestamp
-		}, env);
-
-		// Step 4: Sleep
-		await updateStep(instanceId, 3, { status: 'running', timestamp: Date.now() }, env);
-		await step.sleep("wait on something", "10 seconds");
 		await updateStep(instanceId, 3, { 
 			status: 'completed', 
-			output: { message: "Waited 10 seconds" },
+			output: apiResponse,
 			duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[3].timestamp
 		}, env);
 
-		// Step 5: Write operation with potential failure
+		// Step 5: Sleep
 		await updateStep(instanceId, 4, { status: 'running', timestamp: Date.now() }, env);
+		await step.sleep("wait on something", "10 seconds");
+		await updateStep(instanceId, 4, { 
+			status: 'completed', 
+			output: { message: "Waited 10 seconds" },
+			duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[4].timestamp
+		}, env);
+
+		// Step 6: Write operation with potential failure
+		await updateStep(instanceId, 5, { status: 'running', timestamp: Date.now() }, env);
 		let retryCount = 0;
 		const maxRetries = 5;
 		
 		try {
 			await step.do(
-				"make a call to write that could maybe, just might, fail",
+				"persist results",
 				{
 					retries: {
 						limit: maxRetries,
@@ -230,7 +283,7 @@ export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 					retryCount++;
 					await broadcastUpdate(instanceId, { 
 						type: 'retryAttempt', 
-						stepIndex: 4, 
+						stepIndex: 5, 
 						attempt: retryCount 
 					}, env);
 					
@@ -239,19 +292,19 @@ export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 					}
 				}
 			);
-			await updateStep(instanceId, 4, { 
+			await updateStep(instanceId, 5, { 
 				status: 'completed', 
-				output: { message: "Write operation successful", retries: retryCount },
-				duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[4].timestamp
+				output: { message: "Results persisted successfully", retries: retryCount },
+				duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[5].timestamp
 			}, env);
 			
 			await updateWorkflowStatus(instanceId, 'completed', env, Date.now());
 			await broadcastUpdate(instanceId, { type: 'completed', instance: await getWorkflowInstance(instanceId, env) }, env);
 		} catch (error: any) {
-			await updateStep(instanceId, 4, { 
+			await updateStep(instanceId, 5, { 
 				status: 'failed', 
 				error: error.message,
-				duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[4].timestamp
+				duration: Date.now() - (await getWorkflowInstance(instanceId, env))!.steps[5].timestamp
 			}, env);
 			
 			await updateWorkflowStatus(instanceId, 'failed', env, Date.now());
@@ -330,13 +383,14 @@ export default {
 				`INSERT INTO workflow_instances (id, status, start_time) VALUES (?, ?, ?)`
 			).bind(instance.id, 'queued', Date.now()).run();
 			
-			// Create step records
+			// Create step records - now 6 steps including AI analysis
 			const steps = [
-				{ name: 'Fetch Files', status: 'pending' },
+				{ name: 'Fetch Document', status: 'pending' },
+				{ name: 'AI Analysis', status: 'pending' },
 				{ name: 'Wait for Approval', status: 'pending' },
 				{ name: 'Fetch API Data', status: 'pending' },
 				{ name: 'Sleep', status: 'pending' },
-				{ name: 'Write Operation', status: 'pending' }
+				{ name: 'Persist Results', status: 'pending' }
 			];
 			
 			for (let i = 0; i < steps.length; i++) {
@@ -384,13 +438,14 @@ export default {
 				`INSERT INTO workflow_instances (id, status, start_time) VALUES (?, ?, ?)`
 			).bind(newInstance.id, 'queued', Date.now()).run();
 			
-			// Create step records
+			// Create step records - now 6 steps including AI analysis
 			const steps = [
-				{ name: 'Fetch Files', status: 'pending' },
+				{ name: 'Fetch Document', status: 'pending' },
+				{ name: 'AI Analysis', status: 'pending' },
 				{ name: 'Wait for Approval', status: 'pending' },
 				{ name: 'Fetch API Data', status: 'pending' },
 				{ name: 'Sleep', status: 'pending' },
-				{ name: 'Write Operation', status: 'pending' }
+				{ name: 'Persist Results', status: 'pending' }
 			];
 			
 			for (let i = 0; i < steps.length; i++) {

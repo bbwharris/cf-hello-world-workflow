@@ -8,6 +8,8 @@ STOP. Your knowledge of Cloudflare Workers APIs and limits may be outdated. Alwa
 - MCP: `https://docs.mcp.cloudflare.com/mcp`
 - https://developers.cloudflare.com/agents/
 - MCP: `https://agents.cloudflare.com/mcp`
+- https://developers.cloudflare.com/r2/
+- MCP: `https://bindings.mcp.cloudflare.com/mcp`
 
 For all limits and quotas, retrieve from the product's `/platform/limits/` page. eg. `/workers/platform/limits`
 

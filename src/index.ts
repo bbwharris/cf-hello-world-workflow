@@ -141,29 +141,6 @@ async function getAllWorkflowInstances(env: Env): Promise<WorkflowInstance[]> {
 	return instances;
 }
 
-// Document content embedded for workflow access
-const DOCUMENT_CONTENT = `# Enhancing Productivity with Cloudflare Workflows and AI Agents
-
-## The Evolution of Modern Development Workflows
-
-In today's fast-paced development landscape, efficiency and automation are paramount. Cloudflare has emerged as a leading platform for building and deploying modern applications at the edge. By leveraging Cloudflare Workers, developers can execute code closer to users, reducing latency and improving performance. The platform's serverless architecture eliminates the need for traditional infrastructure management, allowing teams to focus on building features rather than maintaining servers. This shift represents a fundamental change in how we approach application development, moving from monolithic architectures to distributed, edge-first systems.
-
-## Understanding Cloudflare Workflows for Durable Execution
-
-Cloudflare Workflows introduces a powerful paradigm for building durable, multi-step processes that can run for extended periods. Unlike traditional serverless functions that execute and terminate quickly, workflows maintain state across steps, handle failures gracefully with automatic retries, and can pause execution to wait for external events or human approval. This makes them ideal for complex business processes such as document processing pipelines, approval workflows, data ETL operations, and long-running computational tasks. The workflow engine ensures that each step is executed exactly once, even in the face of failures, providing reliability that's essential for production systems.
-
-## The Rise of Agentic AI Systems
-
-Agentic AI represents the next evolution in artificial intelligence, where AI systems can autonomously make decisions, execute tasks, and interact with external systems. These agents go beyond simple chatbots by maintaining state, scheduling tasks, and integrating with APIs and databases. Cloudflare's Agents SDK provides the infrastructure to build these intelligent systems on the edge, combining the durability of Durable Objects with AI capabilities. Agents can handle long-running conversations, process documents, make approval decisions, and even coordinate complex multi-step operations while maintaining context and state across interactions.
-
-## Combining Workflows and Agents for Maximum Productivity
-
-The true power emerges when combining Cloudflare Workflows with AI Agents. Workflows provide the durable execution backbone, ensuring that multi-step processes complete reliably, while Agents add intelligent decision-making capabilities. For example, a document processing workflow might use an AI agent to analyze content, extract key information, and make routing decisions based on the document type. The workflow handles the orchestration, retries, and state management, while the agent provides the cognitive layer. This combination enables businesses to automate complex processes that previously required human intervention, significantly increasing productivity while maintaining accuracy and reliability.
-
-## Practical Implementation and Best Practices
-
-Implementing these technologies requires careful consideration of state management, error handling, and scalability. When building workflows, it's important to design idempotent steps that can be safely retried. For AI agents, consider the context window limitations of models and implement strategies for managing long-running conversations. Use Cloudflare's D1 database for persistent storage, Vectorize for semantic search capabilities, and AI Gateway for routing requests across different AI providers. By following these patterns, developers can build robust, scalable systems that leverage the best of both workflows and agentic AI, creating applications that are not only performant but also intelligent and adaptive to changing requirements.`;
-
 export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 	async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
 		const instanceId = (event as any).instanceId || 'unknown';
@@ -171,11 +148,14 @@ export class MyWorkflow extends WorkflowEntrypoint<Env, Params> {
 		
 		await updateWorkflowStatus(instanceId, 'running', env);
 
-		// Step 1: Fetch document
+		// Step 1: Fetch document from R2
 		await updateStep(instanceId, 0, { status: 'running', timestamp: Date.now() }, env);
-		const documentContent = await step.do("fetch document", async () => {
-			// Document is embedded in the code for reliable access
-			const content = DOCUMENT_CONTENT;
+		const documentContent = await step.do("fetch document from R2", async () => {
+			const object = await env.DOCUMENTS.get('cf-hello-world-workflow/document.txt');
+			if (!object) {
+				throw new Error('Document not found in R2 bucket');
+			}
+			const content = await object.text();
 			return {
 				filename: 'document.txt',
 				content: content,

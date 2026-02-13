@@ -543,8 +543,8 @@
 			`;
 			
 			instance.steps.forEach((step, index) => {
-				const hasOutput = step.output !== undefined;
-				const hasError = step.error !== undefined;
+			const hasOutput = step.output !== undefined && step.output !== null;
+			const hasError = step.error !== undefined && step.error !== null;
 				const duration = step.duration ? `(${(step.duration / 1000).toFixed(1)}s)` : '';
 				
 				html += `

@@ -26,7 +26,7 @@
 			"database_name": "workflow-db",
 			"database_id": "db364670-f259-495e-98ba-0a4b01dfd0fa"
 		}
-	]
+	],
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
@@ -49,7 +49,12 @@
 	 * Static Assets
 	 * https://developers.cloudflare.com/workers/static-assets/binding/
 	 */
-	// "assets": {  "directory": "./public/",  "binding": "ASSETS" }
+	"assets": {
+		"directory": "./public/",
+		"binding": "ASSETS",
+		"html_handling": "auto-trailing-slash",
+		"not_found_handling": "single-page-application"
+	},
 	/**
 	 * Service Bindings (communicate between multiple Workers)
 	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings

@@ -19,6 +19,13 @@
 	],
 	"compatibility_flags": [
 		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "workflow-db",
+			"database_id": "db364670-f259-495e-98ba-0a4b01dfd0fa"
+		}
 	]
 	/**
 	 * Smart Placement
